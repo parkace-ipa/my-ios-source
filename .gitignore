@@ -1,0 +1,5 @@
+dist/
+__pycache__/
+*.ipa
+.DS_Store
+.env

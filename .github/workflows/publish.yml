@@ -1,0 +1,48 @@
+name: Update and publish IPA source
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+  schedule:
+    - cron: '0 21 * * *' # UTC 21:00 = 다음 날 KST 06:00
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+concurrency:
+  group: source-pages
+  cancel-in-progress: false
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: pip install -r requirements-test.txt
+      - run: python -m unittest discover -s tests -v
+      - run: python scripts/core.py
+      - run: |
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add source.json sidestore.json state.json status.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'Update selected IPA source metadata'
+            git push
+          fi
+      - run: python scripts/build.py
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: dist
+  deploy:
+    needs: build
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
