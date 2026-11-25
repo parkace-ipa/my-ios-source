@@ -116,3 +116,9 @@ python3 scripts/build.py
 ```
 
 `dist/`가 Pages 배포용 결과입니다. GitHub 설정의 Pages 소스는 GitHub Actions여야 합니다. 빈 앱 목록은 초기 상태로 의도한 것입니다. NightFox는 403 때문에 앱을 선택하지 않았습니다.
+
+## 검색 노출 억제
+
+공개 HTML 페이지에는 `noindex, nofollow`를 적용했습니다. 이를 준수하는 검색엔진이 페이지를 수집하면 검색 결과에서 제외합니다. 기존 검색 결과의 제거는 즉시 처리되지 않을 수 있습니다. 검색엔진이 noindex를 읽을 수 있도록 robots.txt로 크롤링을 막지 않습니다.
+
+GitHub Pages에서는 이 프로젝트가 임의의 HTTP 응답 헤더를 설정할 수 없으므로 JSON·IPA 파일에 X-Robots-Tag를 적용하지 못합니다. 공개 GitHub 저장소와 Releases도 별도로 발견될 수 있습니다. 이는 링크 공유를 위한 검색 노출 억제이며, 완전한 검색 차단이나 접근 인증을 보장하지 않습니다.
