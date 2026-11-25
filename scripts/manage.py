@@ -21,11 +21,21 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         self.send_header('Content-Type','application/json; charset=utf-8'); self.send_header('Cache-Control','no-store'); self.end_headers(); self.wfile.write(data)
     def do_GET(self):
         if not self.allowed(): return self.send_error(403)
-        if self.path=='/':
-            data=(ROOT/'dist/index.html').read_text().replace('<!--LOCAL-->','<meta name="local-key" content="'+NONCE+'">').encode()
-            self.send_response(200); self.send_header('Content-Type','text/html; charset=utf-8'); self.send_header('Cache-Control','no-store'); self.end_headers(); self.wfile.write(data)
-        elif self.path.startswith('/api/'): self.send_error(404)
-        else: super().do_GET()
+        path=urllib.parse.urlsplit(self.path).path
+        if path in ('/', '/index.html'):
+            data=(ROOT/'admin/index.html').read_text().replace('<!--LOCAL-->','<meta name="local-key" content="'+NONCE+'">').encode()
+            mime='text/html; charset=utf-8'
+        else:
+            files={'/app.js':(ROOT/'admin/app.js','text/javascript; charset=utf-8'),
+                   '/style.css':(ROOT/'admin/style.css','text/css; charset=utf-8'),
+                   '/config.json':(ROOT/'config.json','application/json; charset=utf-8'),
+                   '/source.json':(ROOT/'source.json','application/json; charset=utf-8'),
+                   '/status.json':(ROOT/'status.json','application/json; charset=utf-8'),
+                   '/icon.png':(ROOT/'web/icon.png','image/png')}
+            if path not in files: return self.send_error(404)
+            file,mime=files[path]; data=file.read_bytes()
+        self.send_response(200); self.send_header('Content-Type',mime)
+        self.send_header('Cache-Control','no-store'); self.end_headers(); self.wfile.write(data)
     def do_POST(self):
         if not self.allowed() or self.headers.get('X-Local-Key')!=NONCE: return self.send_error(403)
         if self.headers.get('Origin') not in (None,f'http://127.0.0.1:{PORT}'): return self.send_error(403)
