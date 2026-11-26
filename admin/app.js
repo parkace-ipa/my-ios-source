@@ -29,4 +29,27 @@ $('refresh').onclick=()=>run(async()=>{const r=await api('refresh',{});published
 $('export').onclick=()=>{const u=URL.createObjectURL(new Blob([JSON.stringify(config,null,2)+'\n'],{type:'application/json'}));const a=el('a');a.href=u;a.download='config.json';a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);message('내려받은 config.json을 저장소 루트에 교체하고 commit/push하세요.');};
 $('copy').onclick=()=>run(async()=>{await navigator.clipboard.writeText('https://parkace-ipa.github.io/my-ios-source/source.json');message('배포 후 사용할 소스 주소를 복사했습니다.');});
 $('upload').onclick=()=>run(async()=>{if(!key)throw Error('Releases 업로드는 내 컴퓨터 관리 화면에서 가능합니다.');const file=$('ipa').files[0];if(!file)throw Error('IPA 파일을 선택하세요.');if(file.size>2_000_000_000)throw Error('2GB 이하의 파일을 선택하세요.');$('upload').disabled=true;message('IPA 분석 및 공개 Release 업로드 중…');try{const r=await fetch('/api/upload',{method:'POST',headers:{'X-Local-Key':key},body:file});const d=await r.json();if(!r.ok)throw Error(d.error);addManual(d.app);message(d.note);}finally{$('upload').disabled=false;}});
-run(async()=>{const responses=await Promise.all(['config.json','source.json','status.json'].map(p=>fetch(p+'?t='+Date.now()).then(r=>{if(!r.ok)throw Error('초기 파일 로드 실패');return r.json();})));[config,published]=responses;render();$('mode').textContent=key?'내 컴퓨터 관리 모드 · 설정 저장 후 GitHub에 반영해야 공개 페이지가 바뀝니다.':'공개 페이지 · 설정 편집과 내려받기가 가능합니다. 직접 저장·업로드는 내 컴퓨터 관리 모드를 사용하세요.';const st=responses[2];message('마지막 생성: '+new Date(st.updatedAt).toLocaleString('ko-KR')+'\n'+st.messages.filter(m=>!m.ok).map(m=>m.message).join('\n'));});
+run(async()=>{const responses=await Promise.all(['config.json','source.json','status.json'].map(p=>fetch(p+'?t='+Date.now()).then(r=>{if(!r.ok)throw Error('초기 파일 로드 실패');return r.json();})));[config,published]=responses;render();$('mode').textContent=key?'내 컴퓨터 관리 모드 · 공개하려면 ‘저장하고 공개 배포’를 누르세요.':'공개 페이지 · 설정 편집과 내려받기가 가능합니다. 직접 저장·업로드는 내 컴퓨터 관리 모드를 사용하세요.';const st=responses[2];message('마지막 생성: '+new Date(st.updatedAt).toLocaleString('ko-KR')+'\n'+st.messages.filter(m=>!m.ok).map(m=>m.message).join('\n'));});
+
+$('deploy').onclick=()=>run(async()=>{
+ const controls=[...document.querySelectorAll('button,input')];
+ const disabled=controls.map(n=>n.disabled);
+ controls.forEach(n=>n.disabled=true);
+ try{
+  message('설정 저장 및 GitHub 업로드 중… 잠시 기다려 주세요.');
+  const result=await api('deploy',config);
+  published=await(await fetch('source.json?t='+Date.now())).json();render();
+  const link=$('deploy-link');link.hidden=false;message(result.message);
+  for(let attempt=0;attempt<60;attempt++){
+   await new Promise(resolve=>setTimeout(resolve,5000));
+   const state=await api('deploy-status',{sha:result.sha,startedAt:result.startedAt});
+   link.href=state.url;
+   if(state.status==='completed'){
+    if(state.conclusion==='success'){message('공개 배포가 완료되었습니다. 공개 페이지를 새로고침하세요.');return;}
+    throw Error('GitHub 업로드는 완료됐지만 공개 배포가 실패했습니다. ‘배포 진행 보기’에서 확인하세요.');
+   }
+   message('GitHub 반영 완료 · 공개 페이지 배포 중…');
+  }
+  message('GitHub 반영은 완료됐습니다. 배포 확인 시간이 초과됐으니 ‘배포 진행 보기’에서 결과를 확인하세요.');
+ }finally{controls.forEach((n,i)=>n.disabled=disabled[i]);}
+});

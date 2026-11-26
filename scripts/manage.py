@@ -3,6 +3,7 @@ import http.server, json, secrets, subprocess, tempfile, urllib.parse
 from pathlib import Path
 from core import ROOT, BASE, load, write, fetch, config_valid, normalize, update
 from ipa import inspect_ipa
+import publish
 NONCE=secrets.token_urlsafe(32)
 PORT=8765
 REPO='parkace-ipa/my-ios-source'
@@ -67,6 +68,12 @@ class Handler(http.server.SimpleHTTPRequestHandler):
             if size>10*1024*1024: raise ValueError('요청은 10MB 이하만 지원합니다')
             body=json.loads(self.rfile.read(size))
             if self.path=='/api/browse': return self.reply(fetch(body['url']))
+            if self.path=='/api/deploy-status': return self.reply(publish.status(body['sha'],body['startedAt']))
+            if self.path=='/api/deploy':
+                config_valid(body); publish.preflight()
+                write('config.json',body); update()
+                subprocess.run(['python3',str(ROOT/'scripts/build.py')],check=True)
+                return self.reply(publish.publish())
             if self.path=='/api/save':
                 config_valid(body); write('config.json',body); update()
             elif self.path=='/api/refresh': update()
